@@ -1,0 +1,285 @@
+# Basic Config
+esphome:
+  name: kc868-a6
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+logger:
+
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+
+web_server:
+  port: 80
+  version: 2
+  
+uart:
+  - id: rs485
+    tx_pin: GPIO27
+    rx_pin: GPIO14
+    baud_rate: 9600
+  - id: rs232
+    tx_pin: GPIO17
+    rx_pin: GPIO16
+    baud_rate: 9600
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+
+i2c:
+  sda: GPIO4
+  scl: GPIO15
+  scan: true
+  frequency: 800kHz
+
+# Display configuration
+font:
+  - file: "gfonts://Roboto"
+    id: roboto
+    size: 8
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    update_interval: 1s
+    lambda: |-
+      static uint32_t last_shift = 0;
+      static int8_t offset_x = 0;
+      static int8_t offset_y = 0;
+      
+      // Only update shifts every 30 seconds
+      if (millis() - last_shift > 30000) {
+        offset_x = random(-2, 3);
+        offset_y = random(-2, 3);
+        last_shift = millis();
+      }
+      
+      // Clear display
+      it.fill(COLOR_OFF);
+      
+      // Draw vertical lines - adjusted first line position
+      for(int y = 0; y < 64; y++) {
+        it.draw_pixel_at(44 + offset_x, y + offset_y, COLOR_ON);  // First divider adjusted
+        it.draw_pixel_at(84 + offset_x, y + offset_y, COLOR_ON);  // Second divider
+      }
+      
+      char line[32];
+      auto time = id(sntp_time).now();
+      
+      // Show time only once in third column
+      it.printf(90 + offset_x, 20 + offset_y, id(roboto), "%02d:%02d", time.hour, time.minute);
+      
+      // Display inputs and relays
+      for (int i = 0; i < 6; i++) {
+        // Inputs column
+        snprintf(line, sizeof(line), "T_%d. %-3s", 
+          i+1, 
+          (i == 0 ? id(input_1).state : 
+           i == 1 ? id(input_2).state :
+           i == 2 ? id(input_3).state :
+           i == 3 ? id(input_4).state :
+           i == 4 ? id(input_5).state :
+                    id(input_6).state) ? "ON " : "OFF"
+        );
+        it.printf(2 + offset_x, (i * 10) + offset_y, id(roboto), "%s", line);
+        
+        // Relays column - adjusted position
+        snprintf(line, sizeof(line), "R_%d. %-3s", 
+          i+1,
+          (i == 0 ? id(relay_1).state :
+           i == 1 ? id(relay_2).state :
+           i == 2 ? id(relay_3).state :
+           i == 3 ? id(relay_4).state :
+           i == 4 ? id(relay_5).state :
+                    id(relay_6).state) ? "ON " : "OFF"
+        );
+        it.printf(48 + offset_x, (i * 10) + offset_y, id(roboto), "%s", line);
+      }
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Europe/Madrid
+
+pcf8574:
+  - id: inputs
+    address: 0x22
+  - id: outputs
+    address: 0x24
+
+binary_sensor:
+  - platform: gpio
+    name: "KC868-A6-IN-1"
+    id: input_1
+    pin:
+      pcf8574: inputs
+      number: 0
+      mode: INPUT
+      inverted: true
+    on_state:
+      then:
+        - switch.turn_off: relay_1
+        - if:
+            condition:
+              binary_sensor.is_on: input_1
+            then:
+              - switch.turn_on: relay_1
+            else:
+              - switch.turn_off: relay_1
+
+  - platform: gpio
+    name: "KC868-A6-IN-2"
+    id: input_2
+    pin:
+      pcf8574: inputs
+      number: 1
+      mode: INPUT
+      inverted: true
+    on_state:
+      then:
+        - switch.turn_off: relay_2
+        - if:
+            condition:
+              binary_sensor.is_on: input_2
+            then:
+              - switch.turn_on: relay_2
+            else:
+              - switch.turn_off: relay_2
+
+  - platform: gpio
+    name: "KC868-A6-IN-3"
+    id: input_3
+    pin:
+      pcf8574: inputs
+      number: 2
+      mode: INPUT
+      inverted: true
+    on_state:
+      then:
+        - switch.turn_off: relay_3
+        - if:
+            condition:
+              binary_sensor.is_on: input_3
+            then:
+              - switch.turn_on: relay_3
+            else:
+              - switch.turn_off: relay_3
+
+  - platform: gpio
+    name: "KC868-A6-IN-4"
+    id: input_4
+    pin:
+      pcf8574: inputs
+      number: 3
+      mode: INPUT
+      inverted: true
+    on_state:
+      then:
+        - switch.turn_off: relay_4
+        - if:
+            condition:
+              binary_sensor.is_on: input_4
+            then:
+              - switch.turn_on: relay_4
+            else:
+              - switch.turn_off: relay_4
+
+  - platform: gpio
+    name: "KC868-A6-IN-5"
+    id: input_5
+    pin:
+      pcf8574: inputs
+      number: 4
+      mode: INPUT
+      inverted: true
+    on_state:
+      then:
+        - switch.turn_off: relay_5
+        - if:
+            condition:
+              binary_sensor.is_on: input_5
+            then:
+              - switch.turn_on: relay_5
+            else:
+              - switch.turn_off: relay_5
+
+  - platform: gpio
+    name: "KC868-A6-IN-6"
+    id: input_6
+    pin:
+      pcf8574: inputs
+      number: 5
+      mode: INPUT
+      inverted: true
+    on_state:
+      then:
+        - switch.turn_off: relay_6
+        - if:
+            condition:
+              binary_sensor.is_on: input_6
+            then:
+              - switch.turn_on: relay_6
+            else:
+              - switch.turn_off: relay_6
+
+switch:
+  - platform: gpio
+    name: "KC868-A6-RELAY-1"
+    id: relay_1
+    pin:
+      pcf8574: outputs
+      number: 0
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-RELAY-2"
+    id: relay_2
+    pin:
+      pcf8574: outputs
+      number: 1
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-RELAY-3"
+    id: relay_3
+    pin:
+      pcf8574: outputs
+      number: 2
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-RELAY-4"
+    id: relay_4
+    pin:
+      pcf8574: outputs
+      number: 3
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-RELAY-5"
+    id: relay_5
+    pin:
+      pcf8574: outputs
+      number: 4
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-RELAY-6"
+    id: relay_6
+    pin:
+      pcf8574: outputs
+      number: 5
+      mode: OUTPUT
+      inverted: true

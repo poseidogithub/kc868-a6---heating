@@ -1,0 +1,265 @@
+#2024-12-13
+
+esphome:
+  name: kc868-a6-a
+  friendly_name: KC868-A6 Controller-A
+
+
+  on_boot:
+    priority: 600  # This ensures other components are initialized first
+    then:
+      - delay: 5s  # Give time for all components to initialize properly
+      - logger.log: "Checking thermostat states on boot..."
+      
+      # Check and restore Julia's thermostat state
+      - logger.log: 
+          format: "Julia's thermostat state: %s"
+          args: ['id(Termostato_Julia).state ? "ON" : "OFF"']
+      - if:
+          condition:
+            binary_sensor.is_on: Termostato_Julia
+          then:
+            - switch.turn_on: valve_6
+            - logger.log: "Restoring valve_6 to ON"
+          else:
+            - switch.turn_off: valve_6
+            - logger.log: "Restoring valve_6 to OFF"
+
+      # Check and restore Main Bedroom thermostat state
+      - logger.log:
+          format: "Main Bedroom thermostat state: %s"
+          args: ['id(Termostato_Hab_Principal).state ? "ON" : "OFF"']
+      - if:
+          condition:
+            binary_sensor.is_on: Termostato_Hab_Principal
+          then:
+            - switch.turn_on: valve_5
+            - logger.log: "Restoring valve_5 to ON"
+          else:
+            - switch.turn_off: valve_5
+            - logger.log: "Restoring valve_5 to OFF"
+
+      # Check and restore Sergio's thermostat state
+      - logger.log:
+          format: "Sergio's thermostat state: %s"
+          args: ['id(Termostato_Sergio).state ? "ON" : "OFF"']
+      - if:
+          condition:
+            binary_sensor.is_on: Termostato_Sergio
+          then:
+            - switch.turn_on: valve_2
+            - logger.log: "Restoring valve_2 to ON"
+          else:
+            - switch.turn_off: valve_2
+            - logger.log: "Restoring valve_2 to OFF"
+
+      # Check and restore Living Room thermostat state
+      - logger.log:
+          format: "Living Room thermostat state: %s"
+          args: ['id(Termostato_Salon).state ? "ON" : "OFF"']
+      - if:
+          condition:
+            binary_sensor.is_on: Termostato_Salon
+          then:
+            - switch.turn_on: valve_1
+            - switch.turn_on: valve_3
+            - switch.turn_on: valve_4
+            - logger.log: "Restoring living room valves to ON"
+          else:
+            - switch.turn_off: valve_1
+            - switch.turn_off: valve_3
+            - switch.turn_off: valve_4
+            - logger.log: "Restoring living room valves to OFF"
+
+
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+logger:
+
+api:
+  encryption:
+    key: !secret encryption_key
+
+ota:
+  platform: esphome
+  version: 1
+
+web_server:
+  port: 80
+  version: 2
+
+uart:
+  - id: rs485
+    tx_pin: GPIO27
+    rx_pin: GPIO14
+    baud_rate: 9600
+  - id: rs232
+    tx_pin: GPIO17
+    rx_pin: GPIO16
+    baud_rate: 9600
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+
+i2c:
+  sda: GPIO4
+  scl: GPIO15
+  scan: true
+
+pcf8574:
+  - id: inputs
+    address: 0x22
+  - id: outputs
+    address: 0x24
+
+
+button:
+  - platform: restart
+    name: "domotica Suelo Radiante Reset"
+
+
+binary_sensor:
+  - platform: gpio
+    name: "Termostato Julia"
+    id: Termostato_Julia
+    pin:
+      pcf8574: inputs
+      number: 0
+      mode: INPUT
+      inverted: true
+    on_state:
+      then:
+        - delay: 500ms
+        - if:
+            condition:
+              binary_sensor.is_on: Termostato_Julia
+            then:
+              - switch.turn_on: valve_6
+            else:
+              - switch.turn_off: valve_6
+
+  - platform: gpio
+    name: "Termostato Hab. Principal"
+    id: Termostato_Hab_Principal
+    pin:
+      pcf8574: inputs
+      number: 1
+      mode: INPUT
+      inverted: true
+    on_state:
+      then:
+        - delay: 500ms
+        - if:
+            condition:
+              binary_sensor.is_on: Termostato_Hab_Principal
+            then:
+              - switch.turn_on: valve_5
+            else:
+              - switch.turn_off: valve_5
+
+  - platform: gpio
+    name: "Termostato Sergio"
+    id: Termostato_Sergio
+    pin:
+      pcf8574: inputs
+      number: 2
+      mode: INPUT
+      inverted: true
+    on_state:
+      then:
+        - delay: 500ms
+        - if:
+            condition:
+              binary_sensor.is_on: Termostato_Sergio
+            then:
+              - switch.turn_on: valve_2
+            else:
+              - switch.turn_off: valve_2
+
+  - platform: gpio
+    name: "Termostato Salón"
+    id: Termostato_Salon
+    pin:
+      pcf8574: inputs
+      number: 3
+      mode: INPUT
+      inverted: true
+    on_state:
+      then:
+        - delay: 500ms
+        - if:
+            condition:
+              binary_sensor.is_on: Termostato_Salon
+            then:
+              - switch.turn_on: valve_1
+              - switch.turn_on: valve_3
+              - switch.turn_on: valve_4
+            else:
+              - switch.turn_off: valve_1
+              - switch.turn_off: valve_3
+              - switch.turn_off: valve_4
+
+switch:
+  - platform: gpio
+    name: "Válvulas Salón"
+    id: valve_1
+    pin:
+      pcf8574: outputs
+      number: 0
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name:  "Válvula Hab. Sergio"
+    id: valve_2
+    pin:
+      pcf8574: outputs
+      number: 1
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name:  "Válvula Cocina"
+    id: valve_3
+    pin:
+      pcf8574: outputs
+      number: 2
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name:  "Válvula Baño Pasillo"
+    id: valve_4
+    pin:
+      pcf8574: outputs
+      number: 3
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "Válvulas Hab Principal Y Baño Principal"
+    id: valve_5
+    pin:
+      pcf8574: outputs
+      number: 4
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "Válvulas Hab Julia"
+    id: valve_6
+    pin:
+      pcf8574: outputs
+      number: 5
+      mode: OUTPUT
+      inverted: true
